@@ -7,16 +7,12 @@
 import urllib.request
 import sys
 from bs4 import BeautifulSoup
-
 url = "http://minesweeperonline.com"
 response = urllib.request.urlopen(url).read()
-
 soup = BeautifulSoup(response, 'html.parser') # .encode(sys.stdout.encoding, errors='replace')
-
 #html = list(soup.children)[3]
 #body = list(html.children)
 #print(list(body.children))
-
 #print(soup.body.find_all("div", "square blank"))
 print(soup.body.table.tr.td.div.find(id="center-column").find(id="game-container").find(id="game").parent)
 # div#1_1.square.blank
@@ -62,7 +58,7 @@ class Square(object):
 				pygame.draw.rect(game_display, RED, [self.x_pos+3, self.y_pos, 13, 10]) # flag
 				pygame.draw.rect(game_display, WHITE, [self.x_pos+10, self.y_pos+10, 5, 16]) # pole
 		else:
-			myfont = pygame.font.SysFont("Comic Sans MS", 10)
+			myfont = pygame.font.SysFont("Comic Sans MS", 30)
 			if self.value == "0":
 				surface = myfont.render(" ", False, WHITE)
 			else:
@@ -177,16 +173,15 @@ class Board(object):
 
 	def play(self, left_click, middle_click, right_click, square):
 		import time
-		#self.board = Board()
 
 		if not self.game_started:
-			start_time = time.time()
+			self.start_time = time.time()
 			self.game_started = True
 					
 		if left_click and not square.flagged:
 			if self.first_click:
-				self.board.gen_board(square)
-				first_click = False
+				self.gen_board(square)
+				self. first_click = False
 
 			if square.value == "M":
 				square.reveal()
@@ -196,18 +191,19 @@ class Board(object):
 
 			elif square.value == "0" and not square.revealed:
 				square.reveal()
-				self.board.num_squares_not_revealed -= 1
-				self.board.reveal_adjacent_squares(square)
+				self.num_squares_not_revealed -= 1
+				self.reveal_adjacent_squares(square)
 
 			elif not square.revealed:
 				square.reveal()
-				self.board.num_squares_not_revealed -= 1
+				self.num_squares_not_revealed -= 1
 
 		elif right_click:
 			if square.flagged:
 				square.flagged = False
 			else:
 				square.flagged = True
+				self.num_mines -= 1
 
 		elif middle_click:
 			adjacent_squares = self.board.adjacent_squares(square)
@@ -219,7 +215,7 @@ class Board(object):
 
 			if square.revealed and (adjacent_flagged_squares == int(square.value)):
 				# found mine
-				if self.board.reveal_adjacent_squares(square) == "clicked on mine":
+				if self.reveal_adjacent_squares(square) == "clicked on mine":
 					square.reveal()
 					print("You clicked on a mine")
 					time.sleep(3)
@@ -227,12 +223,12 @@ class Board(object):
 			else:
 				print("Not a valid move")
 
-		if self.board.won():
-			time = round(time.time() - start_time, 2)
+		if self.won():
+			time = round(time.time() - self.start_time, 2)
 			print("You won! Time:", time, "seconds")
 			self.game_exit = True
 		else:
-			print(self.board.num_mines, self.board.num_squares_not_revealed)
+			print(self.num_mines, self.num_squares_not_revealed)
 
 class Bot(object):
 	def __init__(self, board):
@@ -240,7 +236,6 @@ class Bot(object):
 
 	def solve(self):
 		if board.first_click:
-
 			for row in self.board.board:
 				for square in row:
 					if square.clicked(412, 273):
@@ -248,19 +243,36 @@ class Bot(object):
 						right_click = False
 						middle_click = False
 						board.play(left_click, middle_click, right_click, square)
-		"""
+		
 		for row in self.board.board:
 			for square in row:
 				if square.revealed and square.value != "0":
-					if len(self.board.adjacent_squares(square)) == square.value:
+					adjacent_squares = self.board.adjacent_squares(square)
+
+					if len(adjacent_squares) == int(square.value):
 						left_click = False
 						right_click = True
 						middle_click = False
 
-						for adjacent_square in self.board.adjacent_squares(square):
-							board.play(left_click_middle_click, right_click, adjacent_square)
-						#self.board.reveal_adjacent_squares(square)
-		"""
+						for adjacent_square in adjacent_squares:
+							if not adjacent_square.flagged: 
+								board.play(left_click, middle_click, right_click, adjacent_square)
+								print("right click")
+
+					flagged_squares = 0
+					for adjacent_square in adjacent_squares:
+						if adjacent_square.flagged:
+							flagged_squares += 1
+
+					if flagged_squares == int(square.value):
+						left_click = True
+						right_click = False
+						middle_click = False
+
+						for adjacent_square in adjacent_squares:
+							if not adjacent_square.flagged:
+								board.play(left_click, middle_click, right_click, adjacent_square)
+								print("left click")
 
 board = Board()
 first_move = True
