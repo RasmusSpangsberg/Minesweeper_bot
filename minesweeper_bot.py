@@ -58,7 +58,11 @@ class Square(object):
 				pygame.draw.rect(game_display, RED, [self.x_pos+3, self.y_pos, 13, 10]) # flag
 				pygame.draw.rect(game_display, WHITE, [self.x_pos+10, self.y_pos+10, 5, 16]) # pole
 		else:
+
 			myfont = pygame.font.SysFont("Comic Sans MS", 18)
+
+			myfont = pygame.font.SysFont("Comic Sans MS", 30)
+
 			if self.value == "0":
 				surface = myfont.render(" ", False, WHITE)
 			else:
@@ -234,6 +238,11 @@ class Board(object):
 			time = round(time.time() - self.start_time, 2)
 			print("You won! Time:", time, "seconds")
 			self.game_exit = True
+
+
+		else:
+			print(self.num_mines, self.num_squares_not_revealed)
+
 
 class Bot(object):
 	def __init__(self, board):
@@ -411,9 +420,12 @@ class Bot(object):
 							if not adjacent_square.flagged:
 								board.play(left_click, middle_click, right_click, adjacent_square)
 								print("left click")
+
 					
 					self.one_one_pattern(square)
 					#self.one_two_pattern(square)
+
+
 
 board = Board()
 first_move = True
