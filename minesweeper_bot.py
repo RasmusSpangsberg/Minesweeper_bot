@@ -1,23 +1,3 @@
-# rules for this minesweeper game:
-# first square clicked will not have any bombs within adjacent squares
-
-# TODO spam Q and make it work
-
-"""
-import urllib.request
-import sys
-from bs4 import BeautifulSoup
-url = "http://minesweeperonline.com"
-response = urllib.request.urlopen(url).read()
-soup = BeautifulSoup(response, 'html.parser') # .encode(sys.stdout.encoding, errors='replace')
-#html = list(soup.children)[3]
-#body = list(html.children)
-#print(list(body.children))
-#print(soup.body.find_all("div", "square blank"))
-print(soup.body.table.tr.td.div.find(id="center-column").find(id="game-container").find(id="game").parent)
-# div#1_1.square.blank
-"""
-
 from random import randint, randrange
 import pygame
 import time
@@ -58,11 +38,7 @@ class Square(object):
 				pygame.draw.rect(game_display, RED, [self.x_pos+3, self.y_pos, 13, 10]) # flag
 				pygame.draw.rect(game_display, WHITE, [self.x_pos+10, self.y_pos+10, 5, 16]) # pole
 		else:
-
 			myfont = pygame.font.SysFont("Comic Sans MS", 18)
-
-			myfont = pygame.font.SysFont("Comic Sans MS", 30)
-
 			if self.value == "0":
 				surface = myfont.render(" ", False, WHITE)
 			else:
@@ -78,9 +54,7 @@ class Square(object):
 
 	def reveal(self):
 		self.revealed = True
-	
-	def flagged(self):
-		self.flagged = True
+		
 
 class Board(object):
 	def __init__(self):
@@ -98,6 +72,14 @@ class Board(object):
 
 		self.num_mines = 0
 		self.num_squares_not_revealed = 30*16
+
+	def flag(self, square):
+		if square.flagged:
+			square.flagged = False
+			self.num_mines += 1
+		else:
+			square.flagged = True
+			self.num_mines -= 1
 
 	def gen_mines(self, first_square_clicked):
 		# number of mines in the game
@@ -209,12 +191,7 @@ class Board(object):
 				self.num_squares_not_revealed -= 1
 
 		elif right_click:
-			if square.flagged:
-				square.flagged = False
-				self.num_mines += 1
-			else:
-				square.flagged = True
-				self.num_mines -= 1
+			self.flag(square)
 
 		elif middle_click:
 			adjacent_squares = self.adjacent_squares(square)
@@ -239,11 +216,6 @@ class Board(object):
 			print("You won! Time:", time, "seconds")
 			self.game_exit = True
 
-
-		else:
-			print(self.num_mines, self.num_squares_not_revealed)
-
-
 class Bot(object):
 	def __init__(self, board):
 		self.board = board
@@ -267,53 +239,39 @@ class Bot(object):
 				shared_squares.append(adjacent_square)
 
 		return shared_squares
+	
+	# removes flagged squares from a list of squares (often adjacent_squares)
+	# TODO: rename? it doesn't remove them, but makes a new list without them
+	def remove_flagged_squares(self, squares):
+		return_squares = []	
 
-	# if the first shares all not revealed with the second, that doesn't mean that the second shares all not revealed with the first
-	# TODO new name? 
-	# and not flagged
+		for square in squares:
+			if not square.flagged:
+				return_squares.append(square)
 
-	# DOESN'T WORK PROPERLY -----------------------------------------------------------------
-	def shares_all_not_revealed_squares(self, square1, square2):
-		
-		print("comparing:", square1.value, "and", square2.value)
-		# adjacent_not_revealed_and_not_flagged_squares
-		adjacent_blank_squares1 = self.board.adjacent_squares(square1)
-		adjacent_blank_squares2 = self.board.adjacent_squares(square2)
+		return return_squares
 
-		for adjacent_blank_square in adjacent_blank_squares1:
-			if adjacent_blank_square.flagged:
-				adjacent_blank_squares1.remove(adjacent_blank_square)
-				print("removing", adjacent_blank_square.value, "from", square1.value)
+	def shares_all_blank_squares(self, square1, square2):
+		adjacent_blank_squares1 = self.remove_flagged_squares(self.board.adjacent_squares(square1))
+		adjacent_blank_squares2 = self.remove_flagged_squares(self.board.adjacent_squares(square2))
 
-		for adjacent_blank_square in adjacent_blank_squares2:
-			if adjacent_blank_square.flagged:
-				adjacent_blank_squares2.remove(adjacent_blank_square)
-				print("removing", adjacent_blank_square.value, "from", square2.value)
-
-		if set(adjacent_blank_squares1) < set(adjacent_blank_squares2):
-			print("true")
+		if set(adjacent_blank_squares1) <= set(adjacent_blank_squares2):
 			return True
-		print("false")
 		return False
 
+	def shares_all_but_one_blank_squares(self, square1, square2):
+		adjacent_blank_squares1 = self.remove_flagged_squares(self.board.adjacent_squares(square1))
+		adjacent_blank_squares2 = self.remove_flagged_squares(self.board.adjacent_squares(square2))
 
-		"""
-		adjacent_squares1 = self.board.adjacent_squares(square1) 
+		num_not_shared_squares = 0
+		for item in adjacent_blank_squares2:
+			if item not in adjacent_blank_squares1:
+				num_not_shared_squares += 1
 
-		for adjacent_square1 in adjacent_squares1:
-			if adjacent_square1.flagged:
-				adjacent_squares1.remove(adjacent_square1)
-
-		shared_squares = self.shared_squares(square1, square2)
-
-		if all(x in adjacent_squares1 for x in shared_squares) and len(shared_squares) == len(adjacent_squares1):# and all(x in shared_squares for x in adjacent_squares1):
+		print("number of not shared squares:", num_not_shared_squares)
+		if num_not_shared_squares == 1:
 			return True
-		else:
-			for adjacent_square1, shared_square in zip(adjacent_squares1, shared_squares): # 
-				print("adjacent_square1:", adjacent_square1.value)
-				print("shared_square:", shared_square.value)
 		return False
-		"""
 
 	def nearby_number_squares(self, square):
 		nearby_number_squares = []
@@ -334,50 +292,51 @@ class Bot(object):
 		if self.reduced_value(square) == 1:
 			nearby_number_squares = self.nearby_number_squares(square)
 
-			print("1")
 			for nearby_number_square in nearby_number_squares:
 				if self.reduced_value(nearby_number_square) == 1:
 
-					print("2")
 					# and not flagged
-					if self.shares_all_not_revealed_squares(square, nearby_number_square):
+					if self.shares_all_blank_squares(square, nearby_number_square):
 						shared_squares = self.shared_squares(square, nearby_number_square)
 
-						print("3")
 						for adjacent_square in self.board.adjacent_squares(nearby_number_square):
 							if adjacent_square not in shared_squares:
 								left_click = True
 								right_click = False
 								middle_click = False
-								print("4")
 
 								self.board.play(left_click, middle_click, right_click, adjacent_square)
 
-	# DOESN'T WORK
 	def one_two_pattern(self, square):
 		if self.reduced_value(square) == 1:
 			nearby_number_squares = self.nearby_number_squares(square)
 
+			print("one_two_pattern on", square.value)
+
+			print(1)
 			for nearby_number_square in nearby_number_squares:
 				if self.reduced_value(nearby_number_square) == 2:
-					# and not flagged
 
-					# this needs to be, "if nearby_number_square shares all but one square, with the number1 square"
-					#if self.shares_all_not_revealed_squares(square, nearby_number_square):
-						#shared_squares = self.shared_squares(square, nearby_number_square)
+					print(2)
+					if self.shares_all_but_one_blank_squares(square, nearby_number_square):
+						# not a fast way to do it, since "shares_all_but_one_not_revealed_square" already knows which square they don't share
+						print(3)
 
-					shared_squares = self.shared_squares(square, nearby_number_square)
-					# mark the bomb that is not shared between squares
-					if len(self.board.adjacent_squares(nearby_number_square)) == 3:
-						for adjacent_square in self.board.adjacent_squares(nearby_number_square):
-							if adjacent_square not in shared_squares:
-								left_click = False
-								right_click = True
-								middle_click = False
+						adjacent_squares = self.board.adjacent_squares(nearby_number_square)
+						adjacent_squares = self.remove_flagged_squares(adjacent_squares)
 
-								self.board.play(left_click, middle_click, right_click, adjacent_square)
-							
+						if len(adjacent_squares) == 3:
+							shared_squares = self.shared_squares(nearby_number_square, square)
 
+							print(4)
+							for adjacent_square in self.board.adjacent_squares(nearby_number_square):
+								if adjacent_square not in shared_squares:
+									left_click = False
+									right_click = True
+									middle_click = False
+
+									self.board.play(left_click, middle_click, right_click, adjacent_square)
+									
 	def solve(self):
 		if board.first_click:
 			for row in self.board.board:
@@ -420,12 +379,9 @@ class Bot(object):
 							if not adjacent_square.flagged:
 								board.play(left_click, middle_click, right_click, adjacent_square)
 								print("left click")
-
 					
 					self.one_one_pattern(square)
-					#self.one_two_pattern(square)
-
-
+					self.one_two_pattern(square)
 
 board = Board()
 first_move = True
@@ -474,7 +430,7 @@ while not board.game_exit:
 				for square in row:
 					if square.is_clicked(mouse_x, mouse_y):
 						if middle_click:
-							bot.one_one_pattern(square)
+							bot.one_two_pattern(square)
 
 						board.play(left_click, middle_click, right_click, square)
 
